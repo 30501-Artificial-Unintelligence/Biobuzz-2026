@@ -34,4 +34,5 @@ public class shooterTest extends OpMode {
           shooter.setPower(0.3);
           shooter.setMode(DcMotor.RunMode.RUN_TO_POSITION);
         }
+
     }
