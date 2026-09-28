@@ -13,14 +13,15 @@ public class shooterTest extends OpMode {
 
     private double TickTarget;
     double newTarget;
-    boolean buttonB = gamepad1.b;
     // note to self: add into method later
-    public double velocity = rpmConvert(20);
+    public int CurrentRPM = 2500;
+    public double velocity = rpmConvert(CurrentRPM);
 
 
 
-    double rpmConvert(double RPS) {
-        TickTarget = RPS * Ticks;
+
+    double rpmConvert(double RPM) {
+        TickTarget = RPM/60 * Ticks;
         return TickTarget;
     }
 
@@ -37,24 +38,33 @@ public class shooterTest extends OpMode {
     @Override
     public void loop() {
         telemetry.addData("Status", "Running");
-        telemetry.update();
-        Move(3);
+        Move();
     }
-    public void Move(int Revolutions) {
-        boolean currentRB = gamepad1.right_bumper;
-        boolean currentLB = gamepad1.left_bumper;
-        shooter.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        if (gamepad1.right_bumper && !gamepadRBumper) {
-            velocity -= rpmConvert(2);
+    public void Move() {
+        if (gamepad1 == null) {
+            return;
+        } else {
+            boolean currentRB = gamepad1.right_bumper;
+            boolean currentLB = gamepad1.left_bumper;
+            if (gamepad1.right_bumper && !gamepadRBumper) {
+                velocity -= rpmConvert(50);
+                CurrentRPM -= 50;
+
+            }
+            if (gamepad1.left_bumper && !gamepadLBumper) {
+                velocity += rpmConvert(50);
+                CurrentRPM +=50;
+
+            }
+            telemetry.addData("work", "ITS WORKING!!!");
+            double actualRPM = shooter.getVelocity() * 60.0 / 28.0;
+            telemetry.addData("Target RPM", CurrentRPM);
+            telemetry.addData("Actual RPM", "%.0f", actualRPM);
+            telemetry.update();
+            shooter.setVelocity(velocity);
+            gamepadRBumper = currentRB;
+            gamepadLBumper = currentLB;
         }
-        if (gamepad1.left_bumper && !gamepadLBumper) {
-            velocity += rpmConvert(2);
-        }
-        telemetry.addData("work", "ITS WORKING!!!");
-        telemetry.update();
-        shooter.setVelocity(velocity);
-        gamepadRBumper = currentRB;
-        gamepadLBumper = currentLB;
     }
 }
         /*
