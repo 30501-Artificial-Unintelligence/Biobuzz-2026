@@ -1,6 +1,9 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
+import static org.firstinspires.ftc.robotcore.external.BlocksOpModeCompanion.hardwareMap;
+
 import com.qualcomm.robotcore.hardware.AnalogInput;
+import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
 
 /**
@@ -86,9 +89,11 @@ public final class TurretSubsystem {
     private boolean aligned;
     private static final double TAU = 2.0 * Math.PI; // One full revolution in radians.
 
-    public TurretSubsystem(Servo servo, AnalogInput encoder, Config c) {
-        this.servo = servo;
-        this.encoder = encoder;
+    public TurretSubsystem(HardwareMap hardwareMap, Config c) {
+        // Get hardware using the names in your robot configuration.
+        this.servo = hardwareMap.get(Servo.class, "turretServo");
+        this.encoder = hardwareMap.get(AnalogInput.class, "turretEncoder");
+
         turretPerServoRatio = c.turretPerServoRatio;
         turretRadiansPerServoPosition = Math.toRadians(c.servoTravelDeg) * turretPerServoRatio;
         servoCenterPosition = c.servoCenterPosition;
