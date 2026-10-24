@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.teleOps;
+package org.firstinspires.ftc.teamcode.TeleOps;
 
 
 import com.pedropathing.drivetrain.DrivePowers;
@@ -13,34 +13,43 @@ import com.pedropathing.math.Vector;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
 import org.firstinspires.ftc.teamcode.subsystems.IntakeSubsystem_Motor;
 import org.firstinspires.ftc.teamcode.subsystems.ShooterSubsystem;
+import org.firstinspires.ftc.teamcode.subsystems.ShooterSubsystemFF;
+import org.firstinspires.ftc.teamcode.subsystems.StopperSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.TurretSubsystem;
 import org.firstinspires.ftc.teamcode.utils.OpModeStorage;
 import org.firstinspires.ftc.teamcode.utils.TurretTracking;
-import org.firstinspires.ftc.teamcode.utils.AutoAim;
 
 
 @TeleOp(name = "blueTeleop")
 public class blueTeleop extends OpMode {
     private Follower follower;
     private TurretTracking tracking;
-    private AutoAim autoAim;
     /**subsystems declaration
      *
      */
 
     private IntakeSubsystem_Motor intake;
-    private ShooterSubsystem shooter;
+    private ShooterSubsystemFF shooter;
     private TurretSubsystem turret;
+    private StopperSubsystem stopper;
 
     /**button edges
      *
      */
     private boolean prevA = false;
+    private boolean prevX = false;
+    private boolean prevUp = false;
+    private boolean prevDown = false;
 
     /**Subsystem states
      *
      */
     public boolean intakeOn = true;
+    private boolean shooterEnabled = false;
+    private static final double DEFAULT_RPM = 3000;
+    private static final double RPM_STEP = 250;
+    private static final double MAX_RPM = 6000;
+    private static final double MIN_RPM = 0;
 
     /**configs
      *
@@ -65,25 +74,39 @@ public class blueTeleop extends OpMode {
         turretConfig.encoderCenterVolts = 1.5;
 
         follower = Constants.create(hardwareMap);
-        autoAim = new AutoAim(
-                follower,
-                84, 46,
-                84, 96,
-                0 // Forward-facing shooter
-        );
         intake = new IntakeSubsystem_Motor(hardwareMap);
-        turret = new TurretSubsystem(hardwareMap, turretConfig);
+        shooter = new ShooterSubsystemFF(hardwareMap);
+        stopper = new StopperSubsystem(hardwareMap);
+        //turret = new TurretSubsystem(hardwareMap, turretConfig);
+
+        shooter.setTargetRpm(DEFAULT_RPM);
+
+        /*
         tracking = new TurretTracking(
                 turret,
                 new TurretTracking.Target(LOWER_TARGET_X, LOWER_TARGET_Y),
                 new TurretTracking.Target(UPPER_TARGET_X, UPPER_TARGET_Y),
                 FIELD_MIDPOINT_Y
         );
+
+         */
     }
 
+    @Override
     public void start() {
-        follower.setPose(OpModeStorage.autonomousEndPose);
+        Pose startPose;
+
+        if (OpModeStorage.autonomousEndPose != null) {
+            // Use the saved Autonomous position
+            startPose = OpModeStorage.autonomousEndPose;
+        } else {
+            // Default to center of field, facing +Y
+            startPose = new Pose(72, 72, Math.toRadians(90));
+        }
+
+        follower.setPose(startPose);
         follower.update();
+
         intake.startIntake();
     }
 
@@ -104,40 +127,25 @@ public class blueTeleop extends OpMode {
         follower.manual(powers);
          */
 
+        //field centric drive
+        ManualDrive.driveOrHold(
+                follower,
+                -gamepad1.left_stick_y,
+                -gamepad1.left_stick_x,
+                -gamepad1.right_stick_x
+        );
+
         // relocalise button
         if (gamepad1.startWasPressed()) {
-            autoAim.cancel();
             Pose cornerPose = new Pose(10.5, 10.5, Math.toRadians(90));
             // On the fly Pose creation, we dont recommend this for Autonomous. Only accepts radians for heading
             follower.setPose(cornerPose); // overrides our pose
         }
 
-
-        /*
-        Robot drivetrain aiming
-         */
-
-        boolean driverMoving =
-                Math.abs(gamepad1.left_stick_y) > 0.1 ||
-                        Math.abs(gamepad1.left_stick_x) > 0.1 ||
-                        Math.abs(gamepad1.right_stick_x) > 0.1;
-
-        boolean aiming = autoAim.update(gamepad1.right_bumper, driverMoving);
-
-        if (!aiming) {
-            ///robot centric drive.
-            ManualDrive.driveOrHold(
-                    follower,
-                    -gamepad1.left_stick_y,
-                    gamepad1.left_stick_x,
-                    gamepad1.right_stick_x
-            );
-        }
-
         follower.update();
         //localization
         Pose robotPose = follower.pose(); // returns a Pose object
-        tracking.update(robotPose.x(), robotPose.y(), robotPose.heading());
+        //tracking.update(robotPose.x(), robotPose.y(), robotPose.heading());
         // Math.toDegrees() is a built-in java method
 
         /*
@@ -157,28 +165,79 @@ public class blueTeleop extends OpMode {
         /**
          * Shooter Subsystem
          */
+        // Toggle shooter using X
+        boolean x1 = gamepad1.x;
+
+        if (x1 && !prevX) {
+            shooterEnabled = !shooterEnabled;
+        }
+
+        prevX = x1;
+        //RPM adjust
+        // Increase target RPM
+        boolean up = gamepad1.dpad_up;
+
+        if (up && !prevUp) {
+            shooter.setTargetRpm(
+                    Math.min(
+                            MAX_RPM,
+                            shooter.getTargetRpm() + RPM_STEP
+                    )
+            );
+        }
+
+        prevUp = up;
+
+        // Decrease target RPM
+        boolean down = gamepad1.dpad_down;
+
+        if (down && !prevDown) {
+            shooter.setTargetRpm(
+                    Math.max(
+                            MIN_RPM,
+                            shooter.getTargetRpm() - RPM_STEP
+                    )
+            );
+        }
+
+        prevDown = down;
+
+        shooter.update(shooterEnabled);
+
+
+        /**
+         * Stopper Subsystem
+         */
+        if (gamepad1.b ) { //&& shooterEnabled && shooter.isReady()
+            stopper.on();
+        } else {
+            stopper.off();
+        }
 
         /**
          * Telemetry
          */
-        //auto aiming
-        // Aiming telemetry.
-
-        telemetry.addData("Auto aiming", autoAim.isAiming());
-        telemetry.addData("Aim aligned", autoAim.isAligned(2.0));
-
-        if (autoAim.isAiming()) {
-            telemetry.addData(
-                    "Aim error (deg)",
-                    Math.toDegrees(autoAim.getHeadingError())
-            );
-        }
-
         //robot pose
         telemetry.addData("Robot X", robotPose.x());
         telemetry.addData("Robot Y", robotPose.y());
         telemetry.addData("Robot Heading", Math.toDegrees(robotPose.heading()));
 
+        telemetry.addData("Shooter Enabled", shooterEnabled);
+        telemetry.addData("Target RPM", shooter.getTargetRpm());
+        telemetry.addData("Current RPM", shooter.getVelocityRpm());
+        telemetry.addData("Ready", shooter.isReady());
+
+        telemetry.addData("LIVE kP", ShooterSubsystemFF.kP);
+        telemetry.addData("LIVE kI", ShooterSubsystemFF.kI);
+        telemetry.addData("LIVE kD", ShooterSubsystemFF.kD);
+        telemetry.addData("LIVE kV", ShooterSubsystemFF.kV);
+        telemetry.addData("LIVE kS", ShooterSubsystemFF.kS);
+
+        telemetry.addData("Motor Power Command", shooter.getPowerCmd());
+        telemetry.addData("Shooter Target RPM", shooter.getTargetRpm());
+        telemetry.addData("Shooter Actual RPM", shooter.getVelocityRpm());
+
+        /*
         //turret
         telemetry.addData("Target half", tracking.getSelectedHalf());
         telemetry.addData("Target distance (in)", tracking.getDistanceInches());
@@ -191,6 +250,7 @@ public class blueTeleop extends OpMode {
 
         telemetry.addData("Turret state", turret.getState());
         telemetry.addData("Turret aligned", tracking.isAligned());
+        */
 
         telemetry.update();
 

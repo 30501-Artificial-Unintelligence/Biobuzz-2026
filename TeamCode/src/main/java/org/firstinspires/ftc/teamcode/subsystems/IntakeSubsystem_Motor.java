@@ -23,7 +23,7 @@ public class IntakeSubsystem_Motor {
     private static double inputToProportion(double input){return 0.5 + 0.5 * input;} // -1 - 1 -> 0-1
 
     private final DcMotorEx motor;
-    private boolean isOn = false;
+    public boolean isOn = false;
 
     public IntakeSubsystem_Motor(HardwareMap hardwareMap) {
         motor = hardwareMap.get(DcMotorEx.class, "intakeMotor");
