@@ -16,14 +16,14 @@ public class ShooterSubsystemFF {
     public static double READY_TOLERANCE_RPM = 150.0;
 
     // Initial estimates only; tune on your actual robot.
-    public static double kP = 0.0000; // power per RPM of error
+    public static double kP = 0.006; // power per RPM of error
     public static double kI = 0.0;
     public static double kD = 0.0;
     public static double kV = 0.0002; // power per target RPM
     public static double kS = 0.04;
 
     private final DcMotorEx motor;
-    public static double targetRpm = 3000.0;
+    public static double targetRpm = 3200.0;
     private double actualRpm = 0.0;
     private double power = 0.0;
     private double integral = 0.0;
