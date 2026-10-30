@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.TeleOps;
+package org.firstinspires.ftc.teamcode.teleOps;
 
 
 import com.pedropathing.drivetrain.DrivePowers;
@@ -22,7 +22,7 @@ import org.firstinspires.ftc.teamcode.utils.AutoAim;
 import org.firstinspires.ftc.teamcode.utils.AutoAimVision;
 
 
-@TeleOp(name = "blueTeleop")
+@TeleOp(name = "Teleop")
 public class blueTeleop extends OpMode {
     private Follower follower;
     private TurretTracking tracking;
@@ -59,18 +59,31 @@ public class blueTeleop extends OpMode {
     private static final double MAX_RPM = 6000;
     private static final double MIN_RPM = 0;
 
+    private long feedAtNs = 0;
+
     /**configs
      *
      */
     TurretSubsystem.Config turretConfig = new TurretSubsystem.Config();
 
+    /**
+     * Aiming
+     */
     // Fill these with the two target positions in your Pedro field coordinates.
-// Goal coordinates in Pedro field coordinates (inches)
-    private static final double LOWER_GOAL_X = 84.0;
-    private static final double LOWER_GOAL_Y = 46.0;
+    // Goal coordinates in Pedro field coordinates (inches)
+    private static final double BLUE_LOWER_GOAL_X = 84.0;
+    private static final double BLUE_LOWER_GOAL_Y = 46.0;
+    private static final double BLUE_UPPER_GOAL_X = 84.0;
+    private static final double BLUE_UPPER_GOAL_Y = 96.0;
 
-    private static final double UPPER_GOAL_X = 84.0;
-    private static final double UPPER_GOAL_Y = 96.0;
+    // Fill in your measured red coordinates.
+    private static final double RED_LOWER_GOAL_X = Double.NaN;
+    private static final double RED_LOWER_GOAL_Y = Double.NaN;
+    private static final double RED_UPPER_GOAL_X = Double.NaN;
+    private static final double RED_UPPER_GOAL_Y = Double.NaN;
+
+    private double lowerGoalX, lowerGoalY;
+    private double upperGoalX, upperGoalY;
 
     // 0 = shooter points forward along robot +X
     private static final double SHOOTER_OFFSET = 0.0;
@@ -88,7 +101,12 @@ public class blueTeleop extends OpMode {
 
     private AimMode aimMode = AimMode.NONE;
 
+    /**
+     * Alliance selection
+     */
 
+    private int allianceChoice = 0; // 0 = Auto, 1 = Blue, 2 = Red
+    private boolean isBlue = true;
 
 
     @Override
@@ -97,14 +115,7 @@ public class blueTeleop extends OpMode {
         turretConfig.encoderCenterVolts = 1.5;
 
         follower = Constants.create(hardwareMap);
-        autoAim = new AutoAim(
-                follower,
-                LOWER_GOAL_X,
-                LOWER_GOAL_Y,
-                UPPER_GOAL_X,
-                UPPER_GOAL_Y,
-                SHOOTER_OFFSET
-        );
+
         intake = new IntakeSubsystem_Motor(hardwareMap);
         shooter = new ShooterSubsystemFF(hardwareMap);
         stopper = new StopperSubsystem(hardwareMap);
@@ -130,19 +141,89 @@ public class blueTeleop extends OpMode {
     }
 
     @Override
-    public void start() {
-        Pose startPose;
+    public void init_loop() {
+        if (gamepad1.dpad_down && !prevDown) {
+            allianceChoice++;
+            if (allianceChoice > 2) allianceChoice = 0;
+        }
 
-        if (OpModeStorage.autonomousEndPose != null) {
-            // Use the saved Autonomous position
-            startPose = OpModeStorage.autonomousEndPose;
+        if (gamepad1.dpad_up && !prevUp) {
+            allianceChoice--;
+            if (allianceChoice < 0) allianceChoice = 2;
+        }
+
+        prevDown = gamepad1.dpad_down;
+        prevUp = gamepad1.dpad_up;
+
+        String autoLabel = "Auto (Red)";
+        if (OpModeStorage.autonomousIsBlue) {
+            autoLabel = "Auto (Blue)";
+        }
+
+        String blueLabel = "Blue";
+        String redLabel = "Red";
+
+        if (allianceChoice == 0) {
+            autoLabel += " <";
+        } else if (allianceChoice == 1) {
+            blueLabel += " <";
         } else {
-            // Default to center of field, facing +Y
-            startPose = new Pose(72, 72, Math.toRadians(90));
+            redLabel += " <";
+        }
+
+        telemetry.addLine(autoLabel);
+        telemetry.addLine(blueLabel);
+        telemetry.addLine(redLabel);
+        telemetry.update();
+    }
+
+    @Override
+    public void start() {
+
+        // Select the alliance.
+        if (allianceChoice == 0) {
+            isBlue = OpModeStorage.autonomousIsBlue;
+        } else if (allianceChoice == 1) {
+            isBlue = true;
+        } else {
+            isBlue = false;
+        }
+
+        if (isBlue) {
+            lowerGoalX = BLUE_LOWER_GOAL_X;
+            lowerGoalY = BLUE_LOWER_GOAL_Y;
+            upperGoalX = BLUE_UPPER_GOAL_X;
+            upperGoalY = BLUE_UPPER_GOAL_Y;
+        } else {
+            lowerGoalX = RED_LOWER_GOAL_X;
+            lowerGoalY = RED_LOWER_GOAL_Y;
+            upperGoalX = RED_UPPER_GOAL_X;
+            upperGoalY = RED_UPPER_GOAL_Y;
+        }
+
+        autoAim = new AutoAim(
+                follower,
+                lowerGoalX, lowerGoalY,
+                upperGoalX, upperGoalY,
+                SHOOTER_OFFSET
+        );
+
+
+
+        // Default pose when starting without Auto.
+        Pose startPose = new Pose(72, 72, Math.toRadians(90));
+
+        // Only the Auto option uses the saved pose.
+        if (allianceChoice == 0 && OpModeStorage.autonomousEndPose != null) {
+            startPose = OpModeStorage.autonomousEndPose;
         }
 
         follower.setPose(startPose);
         follower.update();
+
+        // Avoid changing RPM if a menu button is still held.
+        prevUp = gamepad1.dpad_up;
+        prevDown = gamepad1.dpad_down;
 
         intake.startIntake();
     }
@@ -157,9 +238,12 @@ public class blueTeleop extends OpMode {
         double forward = -gamepad1.left_stick_y;
         double strafe  = -gamepad1.left_stick_x;
         double turn    = -gamepad1.right_stick_x;
-        boolean driverMoving = Math.abs(forward) > DRIVE_DEADBAND ||
-                Math.abs(strafe) > DRIVE_DEADBAND ||
-                Math.abs(turn) > DRIVE_DEADBAND;
+
+        if (Math.abs(forward) < DRIVE_DEADBAND) forward = 0;
+        if (Math.abs(strafe) < DRIVE_DEADBAND) strafe = 0;
+        if (Math.abs(turn) < DRIVE_DEADBAND) turn = 0;
+
+        boolean driverMoving = forward != 0 || strafe != 0 || turn != 0;
 
         boolean poseButton = gamepad1.y;
         boolean visionButton = gamepad1.right_bumper;
@@ -168,12 +252,8 @@ public class blueTeleop extends OpMode {
         prevPoseButton = poseButton;
         prevVisionButton = visionButton;
 
-        if (gamepad1.startWasPressed()) {
-            autoAim.cancel();
-            visionAim.cancel();
-            aimMode = AimMode.NONE;
-            follower.setPose(new Pose(10.5, 10.5, Math.toRadians(90)));
-        } else if (driverMoving) {
+
+        if (driverMoving) {
             autoAim.cancel();
             visionAim.cancel();
             aimMode = AimMode.NONE;
@@ -205,7 +285,7 @@ public class blueTeleop extends OpMode {
         if (aimMode == AimMode.VISION && !visionAiming) aimMode = AimMode.NONE;
 
         if (aimMode == AimMode.NONE) {
-            ManualDrive.driveOrHold(follower, forward, strafe, turn);
+            follower.manual(new DrivePowers(forward, strafe, turn));
         }
 
         follower.update();
@@ -225,8 +305,7 @@ public class blueTeleop extends OpMode {
         if (a1 && !prevA) intakeOn = !intakeOn;
         prevA = a1;
 
-        if (intakeOn) intake.startIntake();
-        else intake.stopIntake();
+        //main code here moved below shooter
 
         /**
          * Shooter Subsystem
@@ -270,6 +349,18 @@ public class blueTeleop extends OpMode {
 
         shooter.update(shooterEnabled);
 
+        if (gamepad1.leftBumperWasPressed() && shooter.isReady()) {
+            intakeOn = false;
+            feedAtNs = System.nanoTime() + 300_000_000L;
+        }
+
+        if (feedAtNs != 0 && System.nanoTime() >= feedAtNs) {
+            intakeOn = true;
+            feedAtNs = 0;
+        }
+
+        if (intakeOn) intake.startIntake();
+        else intake.stopIntake();
 
         /**
          * Stopper Subsystem
@@ -338,11 +429,11 @@ public class blueTeleop extends OpMode {
 
     }
 
-    private static boolean poseGoalCoordinatesSet() {
-        return Double.isFinite(LOWER_GOAL_X) &&
-                Double.isFinite(LOWER_GOAL_Y) &&
-                Double.isFinite(UPPER_GOAL_X) &&
-                Double.isFinite(UPPER_GOAL_Y);
+    private boolean poseGoalCoordinatesSet() {
+        return Double.isFinite(lowerGoalX)
+                && Double.isFinite(lowerGoalY)
+                && Double.isFinite(upperGoalX)
+                && Double.isFinite(upperGoalY);
     }
 
     @Override

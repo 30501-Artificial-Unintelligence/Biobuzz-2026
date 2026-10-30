@@ -2,6 +2,9 @@ package org.firstinspires.ftc.teamcode.utils;
 
 import com.pedropathing.follower.Follower;
 import com.pedropathing.math.Pose;
+import com.pedropathing.drivetrain.DrivePowers;
+import com.pedropathing.algorithm.Foresight;
+import com.pedropathing.follower.ManualDrive;
 
 /** Button-triggered, stationary aiming for Pedro 3. */
 public class AutoAim {
@@ -20,9 +23,9 @@ public class AutoAim {
      * 0 for forward-facing, Math.PI for backward-facing.
      */
     public AutoAim(Follower follower,
-                       double lowerGoalX, double lowerGoalY,
-                       double upperGoalX, double upperGoalY,
-                       double shooterOffset) {
+                   double lowerGoalX, double lowerGoalY,
+                   double upperGoalX, double upperGoalY,
+                   double shooterOffset) {
         this.follower = follower;
         this.lowerGoalX = lowerGoalX;
         this.lowerGoalY = lowerGoalY;
@@ -47,6 +50,19 @@ public class AutoAim {
             startAim();
         }
 
+        if (aiming) {
+            Foresight algorithm = (Foresight) follower.algorithm();
+
+            DrivePowers powers = ManualDrive.headingLock(
+                    follower,
+                    algorithm.config.headingFeedback.get(),
+                    new DrivePowers(0, 0, 0),
+                    targetHeading
+            );
+
+            follower.manual(powers);
+        }
+
         return aiming;
     }
 
@@ -65,7 +81,6 @@ public class AutoAim {
 
         targetHeading = wrapAngle(Math.atan2(dy, dx) - shooterOffset);
         // Create a fresh target from the current pose on each button press.
-        follower.hold(new Pose(robot.x(), robot.y(), targetHeading));
         aiming = true;
     }
 
