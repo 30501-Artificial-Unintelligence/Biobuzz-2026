@@ -5,6 +5,7 @@ import com.qualcomm.hardware.limelightvision.LLResultTypes;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
+import com.qualcomm.robotcore.util.ElapsedTime;
 
 import java.util.List;
 
@@ -42,6 +43,10 @@ public class VisionSubsystem {
     public static double FIELD_SPLIT_Y_IN = 72.0;
     public static Goal LOWER_HALF_GOAL = Goal.AUDIENCE;
     public static Goal UPPER_HALF_GOAL = Goal.FAR;
+
+    //hivetip timer
+    private final ElapsedTime hiveTimer = new ElapsedTime();
+    private boolean hiveSeen = false;
 
     public static final class AimObservation {
         public final Goal goal;
@@ -185,6 +190,20 @@ public class VisionSubsystem {
                 if (a.tagCount != f.tagCount) return a.tagCount > f.tagCount ? a : f;
                 return a.totalArea >= f.totalArea ? a : f;
         }
+    }
+
+    public boolean hiveReady(Goal goal) {
+        if (!hiveSeen) {
+            SelectionMode mode = goal == Goal.AUDIENCE
+                    ? SelectionMode.AUDIENCE_ONLY : SelectionMode.FAR_ONLY;
+
+            if (getBlueGoal(mode, 0) != null) {
+                hiveSeen = true;
+                hiveTimer.reset();
+            }
+        }
+
+        return hiveSeen && hiveTimer.seconds() >= 2.0;
     }
 
     public void stop() {

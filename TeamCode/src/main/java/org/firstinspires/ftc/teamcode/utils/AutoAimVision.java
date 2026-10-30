@@ -3,12 +3,14 @@ package org.firstinspires.ftc.teamcode.utils;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.math.Pose;
 import org.firstinspires.ftc.teamcode.subsystems.VisionSubsystem;
+import com.pedropathing.algorithm.Foresight;
+import com.pedropathing.drivetrain.DrivePowers;
+import com.pedropathing.follower.ManualDrive;
 
 /**
- * One-shot vision aim: capture one valid tag observation on button rising
- * edge, calculate relative bearing, then ask Pedro to HOLD current X/Y and
- * new heading. Manual stick input cancels it.
- * No absolute field X/Y is used in the bearing calculation.
+ * Captures one vision target per button press, then uses Pedro's
+ * heading controller to rotate without commanding translation.
+ * Manual stick input cancels aiming.
  */
 public class AutoAimVision {
     // Positive if camera lens is FORWARD of shooter's exit point.
@@ -41,11 +43,29 @@ public class AutoAimVision {
     public boolean update(boolean aimButton, boolean driverMoving) {
         boolean pressed = aimButton && !previousButton;
         previousButton = aimButton;
+
         if (driverMoving) {
             cancel();
             return false;
         }
-        if (pressed) startAim();
+
+        if (pressed) {
+            startAim();
+        }
+
+        if (aiming) {
+            Foresight algorithm = (Foresight) follower.algorithm();
+
+            DrivePowers powers = ManualDrive.headingLock(
+                    follower,
+                    algorithm.config.headingFeedback.get(),
+                    new DrivePowers(0, 0, 0),
+                    targetHeadingRad
+            );
+
+            follower.manual(powers);
+        }
+
         return aiming;
     }
 
@@ -81,10 +101,8 @@ public class AutoAimVision {
         targetHeadingRad = desiredHeading;
         commandedCorrectionRad = correction;
 
-        // IMPORTANT: one hold command per button press, NOT once per frame.
-        follower.hold(new Pose(current.x(), current.y(), desiredHeading));
         aiming = true;
-        status = "HOLDING";
+        status = "AIMING";
     }
 
     public void cancel() {

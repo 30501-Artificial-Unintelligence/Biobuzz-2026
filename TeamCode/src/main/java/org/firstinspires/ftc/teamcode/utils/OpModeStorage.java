@@ -5,5 +5,6 @@ import com.pedropathing.math.Pose;
 
 public class OpModeStorage {
     public static Pose autonomousEndPose = null;
+    public static boolean autonomousIsBlue = true;
     // default pose to avoid null errors
 }
