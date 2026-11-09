@@ -60,6 +60,7 @@ public class blueTeleop extends OpMode {
     private static final double MIN_RPM = 0;
 
     private long feedAtNs = 0;
+    private boolean prevB = false;
 
     /**configs
      *
@@ -227,6 +228,7 @@ public class blueTeleop extends OpMode {
         prevDown = gamepad1.dpad_down;
 
         intake.startIntake();
+        shooterEnabled = true;
     }
 
     @Override

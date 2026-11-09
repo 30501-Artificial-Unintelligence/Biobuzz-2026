@@ -23,6 +23,7 @@ public class ShooterSubsystemFF {
     public static double kS = 0.04;
 
     private final DcMotorEx motor;
+    private final DcMotorEx motorTwo;
     public static double targetRpm = 3200.0;
     private double actualRpm = 0.0;
     private double power = 0.0;
@@ -33,10 +34,19 @@ public class ShooterSubsystemFF {
 
     public ShooterSubsystemFF(HardwareMap hardwareMap) {
         motor = hardwareMap.get(DcMotorEx.class, "motor_one");
-        motor.setDirection(DcMotor.Direction.REVERSE); // Change if rotation is wrong
+        motorTwo = hardwareMap.get(DcMotorEx.class, "motor_two");
+
+        motor.setDirection(DcMotorSimple.Direction.REVERSE);
+        motorTwo.setDirection(DcMotorSimple.Direction.FORWARD);
+
         motor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        motorTwo.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+
         motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        motorTwo.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+
         motor.setPower(0.0);
+        motorTwo.setPower(0.0);
     }
 
     public void setTargetRpm(double rpm) {
@@ -48,8 +58,9 @@ public class ShooterSubsystemFF {
         on = enabled && targetRpm > 0.0;
         if (!on) {
             motor.setPower(0.0);
+            motorTwo.setPower(0.0);
             power = 0.0;
-            actualRpm = 0.0; // No new reading while off
+            actualRpm = 0.0;
             integral = 0.0;
             previousError = 0.0;
             previousTimeNs = 0;
@@ -77,6 +88,7 @@ public class ShooterSubsystemFF {
         power = Range.clip(feedforward + kP * error + kI * integral + kD * derivative,
                 0.0, 1.0);
         motor.setPower(power);
+        motorTwo.setPower(power);
     }
 
     public boolean isReady() {
