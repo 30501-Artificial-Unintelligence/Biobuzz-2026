@@ -14,6 +14,7 @@ import org.firstinspires.ftc.teamcode.pedro.Constants;
 import org.firstinspires.ftc.teamcode.subsystems.IntakeSubsystem_Motor;
 import org.firstinspires.ftc.teamcode.subsystems.ShooterSubsystemFF;
 import org.firstinspires.ftc.teamcode.subsystems.StopperSubsystem;
+import org.firstinspires.ftc.teamcode.subsystems.VisionSubsystem;
 import org.firstinspires.ftc.teamcode.utils.OpModeStorage;
 
 @Autonomous(name = "Red Upper", group = "Autonomous")
@@ -23,25 +24,45 @@ public class RedUpperAuto extends OpMode {
     private IntakeSubsystem_Motor intake;
     private ShooterSubsystemFF shooter;
     private StopperSubsystem stopper;
+    private VisionSubsystem vision;
 
-    private final ElapsedTime timer = new ElapsedTime();
-    private int step = 0;
+    private static final VisionSubsystem.Goal HIVE_GOAL =
+            VisionSubsystem.Goal.AUDIENCE;
+    private boolean hiveReady = false;
 
     private static final double SHOOT_RPM = 3200;
-    private static final double FEED_DELAY = 0.3;
-    private static final double GATE_TIME = 1.5;
-    private static final double COLLECT_WAIT = 2.0;
+    private static final double DRIVE_TIMEOUT = 5.0;
+    private static final double GATE_TIME = 2;
+
+    private final ElapsedTime stepTimer = new ElapsedTime();
+    private int step = 0;
+
+    private final ElapsedTime autoTimer = new ElapsedTime();
+    private static final double PARK_DEADLINE = 25.0;
 
     private final PoseFactory poses = PoseFactory.degrees();
 
-    private final Pose startPose = poses.of(60, 134, 90);
-    private final Pose shootPose = poses.of(60, 130, 270);
-    private final Pose collectPose = poses.of(48, 130, 90);
-    private final Pose collectControl = poses.of(53.3288, 109.5317, 0);
-    private final Pose returnControl = poses.of(53.2602, 109.0498, 0);
-    private final Pose exitPose = poses.of(14.0947, 107.6721, -154.0621);
+    private final Pose startPose =
+            poses.of(53.5, 138.4, 270);
 
-    private Path path1, path2, path3, path5;
+    private final Pose shootPose =
+            poses.of(53.5, 134.4, 270);
+
+    private final Pose exitPose =
+            poses.of(14.0, 122.0, -154.0621);
+
+    private Path shootPath;
+    private Path parkPath;
+
+    private void setStep(int nextStep) {
+        step = nextStep;
+        stepTimer.reset();
+    }
+
+    private boolean driveFinished() {
+        return !follower.isBusy()
+                || stepTimer.seconds() >= DRIVE_TIMEOUT;
+    }
 
     @Override
     public void init() {
@@ -51,31 +72,37 @@ public class RedUpperAuto extends OpMode {
         intake = new IntakeSubsystem_Motor(hardwareMap);
         shooter = new ShooterSubsystemFF(hardwareMap);
         stopper = new StopperSubsystem(hardwareMap);
+        vision = new VisionSubsystem(hardwareMap);
 
         shooter.setTargetRpm(SHOOT_RPM);
         intake.stopIntake();
         stopper.off();
 
-        path1 = Paths.line(startPose, shootPose)
+        shootPath = Paths.line(startPose, shootPose)
                 .linear(startPose, shootPose);
 
-        path2 = Paths.curve(shootPose, collectControl, collectPose)
-                .linear(shootPose, collectPose);
+        parkPath = Paths.line(shootPose, exitPose)
+                .tangent();
 
-        path3 = Paths.curve(collectPose, returnControl, shootPose)
-                .linear(collectPose, shootPose);
-
-        path5 = Paths.line(shootPose, exitPose).tangent();
-
-        OpModeStorage.autonomousIsBlue = true;
+        OpModeStorage.autonomousIsBlue = false;
         OpModeStorage.autonomousEndPose = null;
     }
 
     @Override
     public void start() {
-        step = 0;
+        stopper.off();
+
+        // Intake and shooter run continuously until Stop.
+        intake.startIntake();
         shooter.update(true);
-        follower.follow(path1);
+
+        follower.follow(shootPath);
+        setStep(0);
+
+        vision.resetHiveDetection();
+        hiveReady = false;
+
+        autoTimer.reset();
     }
 
     @Override
@@ -83,85 +110,148 @@ public class RedUpperAuto extends OpMode {
         follower.update();
         shooter.update(true);
 
+        // false selects Red tags.
+        // Detection starts after Start and can latch during the approach.
+        hiveReady = vision.hiveReady(HIVE_GOAL, false);
+
+        // If we haven't started shooting by 25 seconds, skip the shot and park.
+        if (autoTimer.seconds() >= PARK_DEADLINE
+                && (step == 0 || step == 1)) {
+
+            stopper.off();
+
+            // Build from the current position.
+            parkPath = Paths.line(follower.pose(), exitPose).tangent();
+            follower.follow(parkPath);
+            setStep(3);
+        }
+
         switch (step) {
 
-            // Arrive at shooting position, first or second visit.
+            // Approach shooting position without a driving timeout.
             case 0:
-            case 4:
-                if (!follower.isBusy() && shooter.isReady()) {
+                if (!follower.isBusy()) {
                     follower.hold(shootPose);
-                    intake.stopIntake();
-                    stopper.on();
-                    timer.reset();
-                    step++;
+                    setStep(1);
                 }
                 break;
 
-            // Shoot: gate open for 1.5 s, intake starts after 0.3 s.
+            // Hold shooting position until both hive and shooter are ready.
             case 1:
-            case 5:
-                if (timer.seconds() >= GATE_TIME) {
-                    stopper.off();
-                    intake.stopIntake();
-
-                    if (step == 1) {
-                        // Collect for 2 s while still at shooting position.
-                        intake.startIntake();
-                        timer.reset();
-                        step = 2;
-                    } else {
-                        follower.follow(path5);
-                        step = 6;
-                    }
-                } else if (timer.seconds() >= FEED_DELAY) {
-                    intake.startIntake();
+                if (hiveReady && shooter.isReady()) {
+                    stopper.on();
+                    setStep(2);
                 }
                 break;
 
-            // Wait stationary with intake running, then start Path 2.
+            // Shoot preloads, then go directly to parking.
             case 2:
-                if (timer.seconds() >= COLLECT_WAIT) {
-                    follower.follow(path2);
-                    step = 3;
+                if (stepTimer.seconds() >= GATE_TIME) {
+                    stopper.off();
+
+                    follower.follow(parkPath);
+                    setStep(3);
                 }
                 break;
 
-            // Keep intake running throughout Path 2.
+            // Parking path: five-second driving timeout.
             case 3:
-                if (!follower.isBusy()) {
-                    intake.stopIntake();
-                    follower.follow(path3);
-                    step = 4;
+                if (driveFinished()) {
+                    follower.hold(exitPose);
+                    setStep(4);
                 }
                 break;
 
-            // Finish exit path; shooter remains on until OpMode stops.
-            case 6:
-                if (!follower.isBusy()) {
-                    follower.hold(exitPose);
-                    step = 7;
-                }
+            // Hold final position until Stop.
+            case 4:
                 break;
         }
 
         OpModeStorage.autonomousEndPose = follower.pose();
 
+        telemetry.addData("Auto time", "%.2f", autoTimer.seconds());
+        telemetry.addData(
+                "Park deadline remaining",
+                "%.1f",
+                Math.max(0.0, PARK_DEADLINE - autoTimer.seconds())
+        );
         telemetry.addData("Step", step);
+        telemetry.addData("Step time", "%.2f", stepTimer.seconds());
+        telemetry.addData("Path busy", follower.isBusy());
         telemetry.addData("X", follower.pose().x());
         telemetry.addData("Y", follower.pose().y());
-        telemetry.addData("Heading", Math.toDegrees(follower.pose().heading()));
+        telemetry.addData(
+                "Heading",
+                Math.toDegrees(follower.pose().heading())
+        );
         telemetry.addData("RPM", shooter.getVelocityRpm());
         telemetry.addData("Ready", shooter.isReady());
+
+        telemetry.addData("Hive selected", "Red %s", HIVE_GOAL);
+        telemetry.addData("Hive visible now", vision.isHiveVisible());
+        telemetry.addData("Hive visible IDs", vision.getHiveVisibleIds());
+        telemetry.addData("Hive detection latched", vision.hasSeenHive());
+        telemetry.addData("Hive first seen IDs", vision.getHiveFirstSeenIds());
+        telemetry.addData(
+                "Hive seconds since seen",
+                "%.2f",
+                vision.getHiveElapsedSeconds()
+        );
+        telemetry.addData(
+                "Hive wait remaining",
+                "%.2f",
+                vision.getHiveWaitRemainingSeconds()
+        );
+        telemetry.addData("Hive ready", hiveReady);
+
+        String status;
+        switch (step) {
+            case 0:
+                status = "Driving to shoot pose";
+                break;
+
+            case 1:
+                if (!vision.hasSeenHive()) {
+                    status = "Waiting for selected Red hive tags";
+                } else if (!hiveReady) {
+                    status = "Waiting two seconds after detection";
+                } else if (!shooter.isReady()) {
+                    status = "Waiting for shooter RPM";
+                } else {
+                    status = "Ready to shoot";
+                }
+                break;
+
+            case 2:
+                status = "Shooting";
+                break;
+
+            case 3:
+                status = "Driving to park";
+                break;
+
+            default:
+                status = "Parked";
+                break;
+        }
+
+        telemetry.addData("Auto status", status);
         telemetry.update();
     }
 
     @Override
     public void stop() {
         OpModeStorage.autonomousEndPose = follower.pose();
+
         shooter.stop();
         intake.stopIntake();
         stopper.off();
+
         follower.stop();
         follower.update();
+
+        if (vision != null) {
+            vision.stop();
+        }
     }
 }

@@ -128,6 +128,7 @@ public class blueTeleop extends OpMode {
         //turret = new TurretSubsystem(hardwareMap, turretConfig);
 
         shooter.setTargetRpm(DEFAULT_RPM);
+        stopper.off();
 
         /*
         tracking = new TurretTracking(
@@ -359,8 +360,15 @@ public class blueTeleop extends OpMode {
             feedAtNs = 0;
         }
 
-        if (intakeOn) intake.startIntake();
-        else intake.stopIntake();
+        if (intakeOn) {
+            if (gamepad1.b) {
+                intake.on(1);  // Stopper button held: 1000 RPM
+            } else {
+                intake.on();   // Normal intake: 2000 RPM
+            }
+        } else {
+            intake.off();
+        }
 
         /**
          * Stopper Subsystem
