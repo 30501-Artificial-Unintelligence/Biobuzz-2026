@@ -20,6 +20,7 @@ import org.firstinspires.ftc.teamcode.utils.OpModeStorage;
 import org.firstinspires.ftc.teamcode.utils.TurretTracking;
 import org.firstinspires.ftc.teamcode.utils.AutoAim;
 import org.firstinspires.ftc.teamcode.utils.AutoAimVision;
+import org.firstinspires.ftc.teamcode.utils.PowerMonitor;
 
 
 @TeleOp(name = "Teleop")
@@ -28,6 +29,7 @@ public class blueTeleop extends OpMode {
     private TurretTracking tracking;
     private AutoAim autoAim;
     private AutoAimVision visionAim;
+    private PowerMonitor powerMonitor;
 
 
     /**subsystems declaration
@@ -77,11 +79,14 @@ public class blueTeleop extends OpMode {
     private static final double BLUE_UPPER_GOAL_X = 84.0;
     private static final double BLUE_UPPER_GOAL_Y = 96.0;
 
-    // Fill in your measured red coordinates.
-    private static final double RED_LOWER_GOAL_X = Double.NaN;
-    private static final double RED_LOWER_GOAL_Y = Double.NaN;
-    private static final double RED_UPPER_GOAL_X = Double.NaN;
-    private static final double RED_UPPER_GOAL_Y = Double.NaN;
+
+    // Blue upper (84, 96) rotates to red lower (60, 48).
+    private static final double RED_LOWER_GOAL_X = 60.0;
+    private static final double RED_LOWER_GOAL_Y = 48.0;
+
+    // Blue lower (84, 46) rotates to red upper (60, 98).
+    private static final double RED_UPPER_GOAL_X = 60.0;
+    private static final double RED_UPPER_GOAL_Y = 98.0;
 
     private double lowerGoalX, lowerGoalY;
     private double upperGoalX, upperGoalY;
@@ -131,6 +136,8 @@ public class blueTeleop extends OpMode {
         shooter.setTargetRpm(DEFAULT_RPM);
         stopper.off();
 
+        powerMonitor = new PowerMonitor(hardwareMap);
+
         /*
         tracking = new TurretTracking(
                 turret,
@@ -172,6 +179,17 @@ public class blueTeleop extends OpMode {
         } else {
             redLabel += " <";
         }
+
+        // Select the alliance.
+        if (allianceChoice == 0) {
+            isBlue = OpModeStorage.autonomousIsBlue;
+        } else if (allianceChoice == 1) {
+            isBlue = true;
+        } else {
+            isBlue = false;
+        }
+
+        visionAim.setAlliance(isBlue); // Add this.
 
         telemetry.addLine(autoLabel);
         telemetry.addLine(blueLabel);
@@ -435,6 +453,7 @@ public class blueTeleop extends OpMode {
         */
 
         telemetry.update();
+        powerMonitor.update();
 
 
     }

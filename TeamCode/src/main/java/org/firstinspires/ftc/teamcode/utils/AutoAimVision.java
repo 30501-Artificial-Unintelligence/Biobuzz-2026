@@ -29,6 +29,7 @@ public class AutoAimVision {
     private double commandedCorrectionRad = Double.NaN;
     private VisionSubsystem.AimObservation lastObservation;
     private String status = "IDLE";
+    private boolean isBlue = true;
 
     public AutoAimVision(Follower follower, VisionSubsystem vision) {
         this.follower = follower;
@@ -53,19 +54,6 @@ public class AutoAimVision {
             startAim();
         }
 
-        if (aiming) {
-            Foresight algorithm = (Foresight) follower.algorithm();
-
-            DrivePowers powers = ManualDrive.headingLock(
-                    follower,
-                    algorithm.config.headingFeedback.get(),
-                    new DrivePowers(0, 0, 0),
-                    targetHeadingRad
-            );
-
-            follower.manual(powers);
-        }
-
         return aiming;
     }
 
@@ -73,7 +61,7 @@ public class AutoAimVision {
         Pose current = follower.pose();
         // current.y() matters ONLY if using the optional FIELD_HALF mode.
         VisionSubsystem.AimObservation observation =
-                vision.getBlueGoal(selectionMode, current.y());
+                vision.getGoal(selectionMode, current.y(), isBlue);
         if (observation == null) {
             // If already aiming, retain the previous HOLD rather than
             // silently claiming to have acquired a new target.
@@ -100,6 +88,8 @@ public class AutoAimVision {
         lastObservation = observation;
         targetHeadingRad = desiredHeading;
         commandedCorrectionRad = correction;
+
+        follower.hold(new Pose(current.x(), current.y(), desiredHeading));
 
         aiming = true;
         status = "AIMING";
@@ -130,5 +120,9 @@ public class AutoAimVision {
 
     private static double wrap(double radians) {
         return Math.atan2(Math.sin(radians), Math.cos(radians));
+    }
+
+    public void setAlliance(boolean isBlue) {
+        this.isBlue = isBlue;
     }
 }

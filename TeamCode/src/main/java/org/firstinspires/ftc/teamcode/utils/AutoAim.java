@@ -17,6 +17,7 @@ public class AutoAim {
     private boolean previousAimButton = false;
     private double targetHeading = 0;
 
+
     /**
      * Goal coordinates are inches in the same field frame as the robot pose.
      * Shooter offset is radians relative to robot forward:
@@ -50,26 +51,13 @@ public class AutoAim {
             startAim();
         }
 
-        if (aiming) {
-            Foresight algorithm = (Foresight) follower.algorithm();
-
-            DrivePowers powers = ManualDrive.headingLock(
-                    follower,
-                    algorithm.config.headingFeedback.get(),
-                    new DrivePowers(0, 0, 0),
-                    targetHeading
-            );
-
-            follower.manual(powers);
-        }
-
         return aiming;
     }
 
     private void startAim() {
         Pose robot = follower.pose();
         // Select once per button press; exactly Y=70 uses the upper goal.
-        boolean useLowerGoal = robot.y() < 70.0;
+        boolean useLowerGoal = robot.y() < 72.0;
         double goalX = useLowerGoal ? lowerGoalX : upperGoalX;
         double goalY = useLowerGoal ? lowerGoalY : upperGoalY;
         double dx = goalX - robot.x();
@@ -80,6 +68,8 @@ public class AutoAim {
         }
 
         targetHeading = wrapAngle(Math.atan2(dy, dx) - shooterOffset);
+
+        follower.hold(new Pose(robot.x(), robot.y(), targetHeading));
         // Create a fresh target from the current pose on each button press.
         aiming = true;
     }
