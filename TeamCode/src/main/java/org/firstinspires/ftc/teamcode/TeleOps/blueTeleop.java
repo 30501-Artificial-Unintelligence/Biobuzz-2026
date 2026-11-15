@@ -74,19 +74,15 @@ public class blueTeleop extends OpMode {
      */
     // Fill these with the two target positions in your Pedro field coordinates.
     // Goal coordinates in Pedro field coordinates (inches)
-    private static final double BLUE_LOWER_GOAL_X = 84.0;
-    private static final double BLUE_LOWER_GOAL_Y = 46.0;
-    private static final double BLUE_UPPER_GOAL_X = 84.0;
-    private static final double BLUE_UPPER_GOAL_Y = 96.0;
+    private static final double BLUE_LOWER_GOAL_X = 86.0;
+    private static final double BLUE_LOWER_GOAL_Y = 60.0;
+    private static final double BLUE_UPPER_GOAL_X = 86.0;
+    private static final double BLUE_UPPER_GOAL_Y = 84.0;
 
-
-    // Blue upper (84, 96) rotates to red lower (60, 48).
-    private static final double RED_LOWER_GOAL_X = 60.0;
-    private static final double RED_LOWER_GOAL_Y = 48.0;
-
-    // Blue lower (84, 46) rotates to red upper (60, 98).
-    private static final double RED_UPPER_GOAL_X = 60.0;
-    private static final double RED_UPPER_GOAL_Y = 98.0;
+    private static final double RED_LOWER_GOAL_X = 58.0;
+    private static final double RED_LOWER_GOAL_Y = 60.0;
+    private static final double RED_UPPER_GOAL_X = 58.0;
+    private static final double RED_UPPER_GOAL_Y = 84.0;
 
     private double lowerGoalX, lowerGoalY;
     private double upperGoalX, upperGoalY;

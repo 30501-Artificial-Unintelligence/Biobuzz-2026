@@ -36,12 +36,12 @@ public class Constants {
     public static PinpointConfig localizerConfig = new PinpointConfig(c -> {
         c.name.set("pinpoint");
         c.podType.set(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD);
-        c.xPodOffset.set(0.12032280756732612);
-        c.yPodOffset.set(0.5383128068578525);
+        c.xPodOffset.set(-98.5);   // Forward pod: 98.5 mm RIGHT of center
+        c.yPodOffset.set(-16.0);   // Strafe pod: 18 mm BEHIND center
+        c.offsetUnits.set(DistanceUnit.MM);
         c.xPodDirection.set(GoBildaPinpointDriver.EncoderDirection.REVERSED);
         c.yPodDirection.set(GoBildaPinpointDriver.EncoderDirection.FORWARD);
         c.globalDistanceUnit.set(DistanceUnit.INCH);
-        c.offsetUnits.set(DistanceUnit.INCH);
     });
 
     public static ForesightConfig foresightConfig = new ForesightConfig(
