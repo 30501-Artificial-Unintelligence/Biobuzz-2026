@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode.TeleOps;
 
 
+import org.firstinspires.ftc.teamcode.subsystems.LightSubsystem;
 import com.pedropathing.drivetrain.DrivePowers;
 import com.pedropathing.follower.ManualDrive;
 import com.pedropathing.math.Pose;
@@ -110,7 +111,8 @@ public class blueTeleop extends OpMode {
 
 
     @Override
-    public void init() {
+    public void shooter = new ShooterSubsystemFF(hardwareMap);
+lights = new LightSubsystem(hardwareMap); {
         // Replace with the measured voltage when the turret points forward.
         turretConfig.encoderCenterVolts = 1.5;
 
@@ -349,6 +351,8 @@ public class blueTeleop extends OpMode {
         prevDown = down;
 
         shooter.update(shooterEnabled);
+        
+        lights.update(shooter);
 
         if (gamepad1.leftBumperWasPressed() && shooter.isReady()) {
             intakeOn = false;
@@ -362,7 +366,8 @@ public class blueTeleop extends OpMode {
 
         if (intakeOn) {
             if (gamepad1.b) {
-                intake.on(1);  // Stopper button held: 1000 RPM
+                intake.on(1);  // Stopper button held: 1000 RPM && shooterEnabled && shooter.isReady()
+            stopper.on();
             } else {
                 intake.on();   // Normal intake: 2000 RPM
             }
@@ -373,8 +378,7 @@ public class blueTeleop extends OpMode {
         /**
          * Stopper Subsystem
          */
-        if (gamepad1.b ) { //&& shooterEnabled && shooter.isReady()
-            stopper.on();
+    
         } else {
             stopper.off();
         }
@@ -449,9 +453,12 @@ public class blueTeleop extends OpMode {
         if (autoAim != null) autoAim.cancel();
         if (visionAim != null) visionAim.cancel();
         if (vision != null) vision.stop();
+        if (shooter != null) shooter.stop();
+        if (lights != null) lights.turnOff();
     }
 
-}
+    }
+
  
 
     private boolean poseGoalCoordinatesSet() {
@@ -461,12 +468,4 @@ public class blueTeleop extends OpMode {
                 && Double.isFinite(upperGoalY);
     }
 
-    @Override
-    public void stop() {
-        if (autoAim != null) autoAim.cancel();
-        if (visionAim != null) visionAim.cancel();
-        if (vision != null) vision.stop();
-        if (shooter != null) shooter.stop();
-        if (lights != null) lights.turnOff();
-    }
-
+    
