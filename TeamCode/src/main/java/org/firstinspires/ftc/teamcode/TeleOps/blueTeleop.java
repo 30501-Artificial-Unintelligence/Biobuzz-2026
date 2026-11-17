@@ -1,7 +1,6 @@
 package org.firstinspires.ftc.teamcode.TeleOps;
 
 
-import org.firstinspires.ftc.teamcode.subsystems.LightSubsystem;
 import com.pedropathing.drivetrain.DrivePowers;
 import com.pedropathing.follower.ManualDrive;
 import com.pedropathing.math.Pose;
@@ -13,6 +12,7 @@ import com.pedropathing.math.Vector;
 
 import org.firstinspires.ftc.teamcode.pedro.Constants;
 import org.firstinspires.ftc.teamcode.subsystems.IntakeSubsystem_Motor;
+import org.firstinspires.ftc.teamcode.subsystems.LightSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.ShooterSubsystemFF;
 import org.firstinspires.ftc.teamcode.subsystems.StopperSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.TurretSubsystem;
@@ -21,6 +21,7 @@ import org.firstinspires.ftc.teamcode.utils.OpModeStorage;
 import org.firstinspires.ftc.teamcode.utils.TurretTracking;
 import org.firstinspires.ftc.teamcode.utils.AutoAim;
 import org.firstinspires.ftc.teamcode.utils.AutoAimVision;
+import org.firstinspires.ftc.teamcode.utils.PowerMonitor;
 
 
 @TeleOp(name = "Teleop")
@@ -29,6 +30,7 @@ public class blueTeleop extends OpMode {
     private TurretTracking tracking;
     private AutoAim autoAim;
     private AutoAimVision visionAim;
+    private PowerMonitor powerMonitor;
 
 
     /**subsystems declaration
@@ -40,7 +42,7 @@ public class blueTeleop extends OpMode {
     private TurretSubsystem turret;
     private StopperSubsystem stopper;
     private VisionSubsystem vision;
-
+    private LightSubsystem lights;
     /**button edges
      *
      */
@@ -60,7 +62,14 @@ public class blueTeleop extends OpMode {
     private static final double MAX_RPM = 6000;
     private static final double MIN_RPM = 0;
 
-    private long feedAtNs = 0;
+    private boolean shooting = false;
+    //Shooting Boost
+    private boolean SHOOT_BOOST_ENABLED = false;
+    private long shootBoostStartNs = 0;
+
+    private static final double BOOST_PER_SECOND = 0.5;
+    private static final double MAX_SHOOT_BOOST = 0.15;
+
 
     /**configs
      *
@@ -72,16 +81,15 @@ public class blueTeleop extends OpMode {
      */
     // Fill these with the two target positions in your Pedro field coordinates.
     // Goal coordinates in Pedro field coordinates (inches)
-    private static final double BLUE_LOWER_GOAL_X = 84.0;
-    private static final double BLUE_LOWER_GOAL_Y = 46.0;
-    private static final double BLUE_UPPER_GOAL_X = 84.0;
-    private static final double BLUE_UPPER_GOAL_Y = 96.0;
+    private static final double BLUE_LOWER_GOAL_X = 86.0;
+    private static final double BLUE_LOWER_GOAL_Y = 60.0;
+    private static final double BLUE_UPPER_GOAL_X = 86.0;
+    private static final double BLUE_UPPER_GOAL_Y = 84.0;
 
-    // Fill in your measured red coordinates.
-    private static final double RED_LOWER_GOAL_X = Double.NaN;
-    private static final double RED_LOWER_GOAL_Y = Double.NaN;
-    private static final double RED_UPPER_GOAL_X = Double.NaN;
-    private static final double RED_UPPER_GOAL_Y = Double.NaN;
+    private static final double RED_LOWER_GOAL_X = 58.0;
+    private static final double RED_LOWER_GOAL_Y = 60.0;
+    private static final double RED_UPPER_GOAL_X = 58.0;
+    private static final double RED_UPPER_GOAL_Y = 84.0;
 
     private double lowerGoalX, lowerGoalY;
     private double upperGoalX, upperGoalY;
@@ -111,8 +119,7 @@ public class blueTeleop extends OpMode {
 
 
     @Override
-    public void shooter = new ShooterSubsystemFF(hardwareMap);
-lights = new LightSubsystem(hardwareMap); {
+    public void init() {
         // Replace with the measured voltage when the turret points forward.
         turretConfig.encoderCenterVolts = 1.5;
 
@@ -122,6 +129,7 @@ lights = new LightSubsystem(hardwareMap); {
         shooter = new ShooterSubsystemFF(hardwareMap);
         stopper = new StopperSubsystem(hardwareMap);
         vision = new VisionSubsystem(hardwareMap);
+        lights = new LightSubsystem(hardwareMap);
 
         visionAim = new AutoAimVision(follower, vision);
         visionAim.setSelectionMode(
@@ -131,6 +139,8 @@ lights = new LightSubsystem(hardwareMap); {
 
         shooter.setTargetRpm(DEFAULT_RPM);
         stopper.off();
+
+        powerMonitor = new PowerMonitor(hardwareMap);
 
         /*
         tracking = new TurretTracking(
@@ -173,6 +183,17 @@ lights = new LightSubsystem(hardwareMap); {
         } else {
             redLabel += " <";
         }
+
+        // Select the alliance.
+        if (allianceChoice == 0) {
+            isBlue = OpModeStorage.autonomousIsBlue;
+        } else if (allianceChoice == 1) {
+            isBlue = true;
+        } else {
+            isBlue = false;
+        }
+
+        visionAim.setAlliance(isBlue); // Add this.
 
         telemetry.addLine(autoLabel);
         telemetry.addLine(blueLabel);
@@ -229,6 +250,7 @@ lights = new LightSubsystem(hardwareMap); {
         prevDown = gamepad1.dpad_down;
 
         intake.startIntake();
+        shooterEnabled = true;
     }
 
     @Override
@@ -350,24 +372,42 @@ lights = new LightSubsystem(hardwareMap); {
 
         prevDown = down;
 
-        shooter.update(shooterEnabled);
-        
+        boolean boostActive = SHOOT_BOOST_ENABLED
+                && gamepad1.left_bumper
+                && shooterEnabled
+                && shooter.getTargetRpm() > 0.0;
+
+        double addedPower = 0.0;
+
+        if (boostActive) {
+            long now = System.nanoTime();
+
+            if (shootBoostStartNs == 0) {
+                shootBoostStartNs = now;
+            }
+
+            double elapsedSeconds = (now - shootBoostStartNs) / 1e9;
+
+            addedPower = Math.min(
+                    MAX_SHOOT_BOOST,
+                    elapsedSeconds * BOOST_PER_SECOND
+            );
+        } else {
+            shootBoostStartNs = 0;
+        }
+// Update shooter motor
+        shooter.update(shooterEnabled, addedPower);
+
+// Update LED based on shooter status
         lights.update(shooter);
 
-        if (gamepad1.leftBumperWasPressed() && shooter.isReady()) {
-            intakeOn = false;
-            feedAtNs = System.nanoTime() + 300_000_000L;
-        }
-
-        if (feedAtNs != 0 && System.nanoTime() >= feedAtNs) {
+        if (gamepad1.left_bumper) {
             intakeOn = true;
-            feedAtNs = 0;
         }
 
         if (intakeOn) {
             if (gamepad1.b) {
-                intake.on(1);  // Stopper button held: 1000 RPM && shooterEnabled && shooter.isReady()
-            stopper.on();
+                intake.on(1);  // Stopper button held: 1000 RPM
             } else {
                 intake.on();   // Normal intake: 2000 RPM
             }
@@ -378,7 +418,8 @@ lights = new LightSubsystem(hardwareMap); {
         /**
          * Stopper Subsystem
          */
-    
+        if (gamepad1.left_bumper || gamepad1.b) {
+            stopper.on();
         } else {
             stopper.off();
         }
@@ -411,6 +452,9 @@ lights = new LightSubsystem(hardwareMap); {
         telemetry.addData("Current RPM", shooter.getVelocityRpm());
         telemetry.addData("Ready", shooter.isReady());
 
+        telemetry.addData("Boost enabled", SHOOT_BOOST_ENABLED);
+        telemetry.addData("Added power", "%.3f", addedPower);
+
         telemetry.addData("LIVE kP", ShooterSubsystemFF.kP);
         telemetry.addData("LIVE kI", ShooterSubsystemFF.kI);
         telemetry.addData("LIVE kD", ShooterSubsystemFF.kD);
@@ -437,6 +481,7 @@ lights = new LightSubsystem(hardwareMap); {
         */
 
         telemetry.update();
+        powerMonitor.update();
 
 
     }
@@ -453,19 +498,9 @@ lights = new LightSubsystem(hardwareMap); {
         if (autoAim != null) autoAim.cancel();
         if (visionAim != null) visionAim.cancel();
         if (vision != null) vision.stop();
-        if (shooter != null) shooter.stop();
+
         if (lights != null) lights.turnOff();
     }
 
-    }
-
- 
-
-    private boolean poseGoalCoordinatesSet() {
-        return Double.isFinite(lowerGoalX)
-                && Double.isFinite(lowerGoalY)
-                && Double.isFinite(upperGoalX)
-                && Double.isFinite(upperGoalY);
-    }
-
-    
+}
+//lexihere!
