@@ -94,7 +94,7 @@ public class RedUpperAuto extends OpMode {
 
         // Intake and shooter run continuously until Stop.
         intake.startIntake();
-        shooter.update(true);
+        shooter.update(true, addedPower);
 
         follower.follow(shootPath);
         setStep(0);
@@ -108,7 +108,7 @@ public class RedUpperAuto extends OpMode {
     @Override
     public void loop() {
         follower.update();
-        shooter.update(true);
+        shooter.update(true, addedPower);
 
         // false selects Red tags.
         // Detection starts after Start and can latch during the approach.

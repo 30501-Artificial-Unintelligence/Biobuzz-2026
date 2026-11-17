@@ -131,4 +131,8 @@ public class AutoAimVision {
     private static double wrap(double radians) {
         return Math.atan2(Math.sin(radians), Math.cos(radians));
     }
+
+    public void setAlliance(boolean isBlue) {
+
+    }
 }

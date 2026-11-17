@@ -2,7 +2,6 @@ package org.firstinspires.ftc.teamcode.subsystems;
 
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.util.Range;
 
@@ -44,7 +43,7 @@ public class ShooterSubsystemFF {
     }
 
     /** Call once per TeleOp loop. */
-    public void update(boolean enabled) {
+    public void update(boolean enabled, double addedPower) {
         on = enabled && targetRpm > 0.0;
         if (!on) {
             motor.setPower(0.0);
@@ -88,5 +87,5 @@ public class ShooterSubsystemFF {
     public double getPowerCmd() { return power; }
     public boolean isOn() { return on; }
 
-    public void stop() { update(false); }
+    public void stop() { update(false, addedPower); }
 }

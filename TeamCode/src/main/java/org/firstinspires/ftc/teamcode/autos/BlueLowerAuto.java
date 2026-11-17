@@ -103,7 +103,7 @@ public class BlueLowerAuto extends OpMode {
 
         // Intake and shooter run continuously until Stop.
         intake.startIntake();
-        shooter.update(true);
+        shooter.update(true, addedPower);
 
         follower.follow(shootPath);
         setStep(0);
@@ -112,7 +112,7 @@ public class BlueLowerAuto extends OpMode {
     @Override
     public void loop() {
         follower.update();
-        shooter.update(true);
+        shooter.update(true, addedPower);
 
         // true selects Blue tags.
         // Detection can latch during the approach.

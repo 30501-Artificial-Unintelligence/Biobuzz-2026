@@ -123,7 +123,7 @@ public class BlueUpperAuto extends OpMode {
 
         // Intake and shooter run continuously until Stop.
         intake.startIntake();
-        shooter.update(true);
+        shooter.update(true, addedPower);
 
         follower.follow(path1);
         setStep(0);
@@ -132,7 +132,7 @@ public class BlueUpperAuto extends OpMode {
     @Override
     public void loop() {
         follower.update();
-        shooter.update(true);
+        shooter.update(true, addedPower);
 
         switch (step) {
 

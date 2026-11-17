@@ -2,13 +2,11 @@ package org.firstinspires.ftc.teamcode.TeleOps;
 
 
 import com.pedropathing.drivetrain.DrivePowers;
-import com.pedropathing.follower.ManualDrive;
 import com.pedropathing.math.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import com.pedropathing.follower.Follower;
-import com.pedropathing.math.Vector;
 
 import org.firstinspires.ftc.teamcode.pedro.Constants;
 import org.firstinspires.ftc.teamcode.subsystems.IntakeSubsystem_Motor;
@@ -21,11 +19,10 @@ import org.firstinspires.ftc.teamcode.utils.OpModeStorage;
 import org.firstinspires.ftc.teamcode.utils.TurretTracking;
 import org.firstinspires.ftc.teamcode.utils.AutoAim;
 import org.firstinspires.ftc.teamcode.utils.AutoAimVision;
-import org.firstinspires.ftc.teamcode.utils.PowerMonitor;
 
 
 @TeleOp(name = "Teleop")
-public class blueTeleop extends OpMode {
+public class blueTeleop<PowerMonitor> extends OpMode {
     private Follower follower;
     private TurretTracking tracking;
     private AutoAim autoAim;
@@ -102,6 +99,10 @@ public class blueTeleop extends OpMode {
 
     private static final double DRIVE_DEADBAND = 0.08;
 
+    public blueTeleop() {
+        powerMonitor = new PowerMonitor(hardwareMap);
+    }
+
     private enum AimMode {
         NONE,
         POSE,
@@ -139,8 +140,6 @@ public class blueTeleop extends OpMode {
 
         shooter.setTargetRpm(DEFAULT_RPM);
         stopper.off();
-
-        powerMonitor = new PowerMonitor(hardwareMap);
 
         /*
         tracking = new TurretTracking(
@@ -481,7 +480,11 @@ public class blueTeleop extends OpMode {
         */
 
         telemetry.update();
-        powerMonitor.update();
+        try {
+            powerMonitor.wait();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
 
 
     }

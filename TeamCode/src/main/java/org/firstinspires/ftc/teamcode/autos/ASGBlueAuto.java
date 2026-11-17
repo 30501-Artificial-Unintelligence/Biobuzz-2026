@@ -134,7 +134,7 @@ public class ASGBlueAuto extends OpMode {
         follower.update();
 
         if (shooterEnabled) {
-            shooter.update(true);
+            shooter.update(true, addedPower);
         }
 
         switch (step) {
@@ -146,7 +146,7 @@ public class ASGBlueAuto extends OpMode {
 
                     shooter.setTargetRpm(SHOOT_RPM);
                     shooterEnabled = true;
-                    shooter.update(true);
+                    shooter.update(true, addedPower);
 
                     follower.follow(path1);
                     setStep(1);
