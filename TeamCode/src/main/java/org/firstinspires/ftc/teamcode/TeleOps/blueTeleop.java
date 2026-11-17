@@ -452,4 +452,21 @@ public class blueTeleop extends OpMode {
     }
 
 }
-//lexihere!
+ 
+
+    private boolean poseGoalCoordinatesSet() {
+        return Double.isFinite(lowerGoalX)
+                && Double.isFinite(lowerGoalY)
+                && Double.isFinite(upperGoalX)
+                && Double.isFinite(upperGoalY);
+    }
+
+    @Override
+    public void stop() {
+        if (autoAim != null) autoAim.cancel();
+        if (visionAim != null) visionAim.cancel();
+        if (vision != null) vision.stop();
+        if (shooter != null) shooter.stop();
+        if (lights != null) lights.turnOff();
+    }
+
