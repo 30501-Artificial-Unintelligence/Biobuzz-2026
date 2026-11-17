@@ -29,6 +29,10 @@ public class blueTeleop<PowerMonitor> extends OpMode {
     private AutoAimVision visionAim;
     private PowerMonitor powerMonitor;
 
+    {
+        powerMonitor = new PowerMonitor(hardwareMap);
+    }
+
 
     /**subsystems declaration
      *
@@ -100,7 +104,6 @@ public class blueTeleop<PowerMonitor> extends OpMode {
     private static final double DRIVE_DEADBAND = 0.08;
 
     public blueTeleop() {
-        powerMonitor = new PowerMonitor(hardwareMap);
     }
 
     private enum AimMode {
