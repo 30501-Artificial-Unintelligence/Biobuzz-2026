@@ -61,8 +61,7 @@ public class blueTeleop extends OpMode {
     private static final double MAX_RPM = 6000;
     private static final double MIN_RPM = 0;
 
-    private long feedAtNs = 0;
-    private boolean prevB = false;
+    private boolean shooting = false;
 
     /**configs
      *
@@ -366,14 +365,8 @@ public class blueTeleop extends OpMode {
 
         shooter.update(shooterEnabled);
 
-        if (gamepad1.leftBumperWasPressed() && shooter.isReady()) {
-            intakeOn = false;
-            feedAtNs = System.nanoTime() + 300_000_000L;
-        }
-
-        if (feedAtNs != 0 && System.nanoTime() >= feedAtNs) {
+        if (gamepad1.left_bumper) {
             intakeOn = true;
-            feedAtNs = 0;
         }
 
         if (intakeOn) {
@@ -389,7 +382,7 @@ public class blueTeleop extends OpMode {
         /**
          * Stopper Subsystem
          */
-        if (gamepad1.b ) { //&& shooterEnabled && shooter.isReady()
+        if (gamepad1.left_bumper || gamepad1.b) {
             stopper.on();
         } else {
             stopper.off();
