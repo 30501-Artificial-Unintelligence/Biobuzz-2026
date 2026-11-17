@@ -62,6 +62,13 @@ public class blueTeleop extends OpMode {
     private static final double MIN_RPM = 0;
 
     private boolean shooting = false;
+    //Shooting Boost
+    private boolean SHOOT_BOOST_ENABLED = false;
+    private long shootBoostStartNs = 0;
+
+    private static final double BOOST_PER_SECOND = 0.5;
+    private static final double MAX_SHOOT_BOOST = 0.15;
+
 
     /**configs
      *
@@ -363,7 +370,31 @@ public class blueTeleop extends OpMode {
 
         prevDown = down;
 
-        shooter.update(shooterEnabled);
+        boolean boostActive = SHOOT_BOOST_ENABLED
+                && gamepad1.left_bumper
+                && shooterEnabled
+                && shooter.getTargetRpm() > 0.0;
+
+        double addedPower = 0.0;
+
+        if (boostActive) {
+            long now = System.nanoTime();
+
+            if (shootBoostStartNs == 0) {
+                shootBoostStartNs = now;
+            }
+
+            double elapsedSeconds = (now - shootBoostStartNs) / 1e9;
+
+            addedPower = Math.min(
+                    MAX_SHOOT_BOOST,
+                    elapsedSeconds * BOOST_PER_SECOND
+            );
+        } else {
+            shootBoostStartNs = 0;
+        }
+
+        shooter.update(shooterEnabled, addedPower);
 
         if (gamepad1.left_bumper) {
             intakeOn = true;
@@ -415,6 +446,9 @@ public class blueTeleop extends OpMode {
         telemetry.addData("Target RPM", shooter.getTargetRpm());
         telemetry.addData("Current RPM", shooter.getVelocityRpm());
         telemetry.addData("Ready", shooter.isReady());
+
+        telemetry.addData("Boost enabled", SHOOT_BOOST_ENABLED);
+        telemetry.addData("Added power", "%.3f", addedPower);
 
         telemetry.addData("LIVE kP", ShooterSubsystemFF.kP);
         telemetry.addData("LIVE kI", ShooterSubsystemFF.kI);

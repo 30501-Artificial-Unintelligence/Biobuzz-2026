@@ -55,6 +55,10 @@ public class ShooterSubsystemFF {
 
     /** Call once per TeleOp loop. */
     public void update(boolean enabled) {
+        update(enabled, 0.0);
+    }
+
+    public void update(boolean enabled, double addedPower) {
         on = enabled && targetRpm > 0.0;
         if (!on) {
             motor.setPower(0.0);
@@ -85,8 +89,11 @@ public class ShooterSubsystemFF {
         previousError = error;
 
         double feedforward = kV * targetRpm + kS;
-        power = Range.clip(feedforward + kP * error + kI * integral + kD * derivative,
-                0.0, 1.0);
+        power = Range.clip(
+                feedforward + kP * error + kI * integral + kD * derivative
+                        + addedPower,
+                0.0, 1.0
+        );
         motor.setPower(power);
         motorTwo.setPower(power);
     }
