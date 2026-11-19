@@ -16,7 +16,7 @@ public class ShooterSubsystemFF {
     public static double READY_TOLERANCE_RPM = 150.0;
 
     // Initial estimates only; tune on your actual robot.
-    public static double kP = 0.0065; // power per RPM of error
+    public static double kP = 0.007; // power per RPM of error
     public static double kI = 0.0;
     public static double kD = 0.0;
     public static double kV = 0.0002; // power per target RPM
@@ -24,13 +24,14 @@ public class ShooterSubsystemFF {
 
     private final DcMotorEx motor;
     private final DcMotorEx motorTwo;
-    public static double targetRpm = 3200.0;
+    public static double targetRpm = 3100.0;
     private double actualRpm = 0.0;
     private double power = 0.0;
     private double integral = 0.0;
     private double previousError = 0.0;
     private long previousTimeNs = 0;
     private boolean on = false;
+
 
     public ShooterSubsystemFF(HardwareMap hardwareMap) {
         motor = hardwareMap.get(DcMotorEx.class, "motor_one");

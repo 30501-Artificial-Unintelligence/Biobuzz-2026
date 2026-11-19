@@ -13,7 +13,7 @@ public class IntakeSubsystem_Motor {
     private static final double TICKS_PER_REV = 28.0;
 
     public static double NORMAL_RPM = 6000.0;
-    public static double SLOW_RPM = 6000.0;
+    public static double SLOW_RPM = 3500.0;
 
     private final DcMotorEx motor;
     private final DcMotorEx motor2;

@@ -16,6 +16,7 @@ import org.firstinspires.ftc.teamcode.subsystems.ShooterSubsystemFF;
 import org.firstinspires.ftc.teamcode.subsystems.StopperSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.TurretSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.VisionSubsystem;
+import org.firstinspires.ftc.teamcode.subsystems.LightSubsystem;
 import org.firstinspires.ftc.teamcode.utils.OpModeStorage;
 import org.firstinspires.ftc.teamcode.utils.TurretTracking;
 import org.firstinspires.ftc.teamcode.utils.AutoAim;
@@ -41,6 +42,7 @@ public class blueTeleop extends OpMode {
     private TurretSubsystem turret;
     private StopperSubsystem stopper;
     private VisionSubsystem vision;
+    private LightSubsystem light;
 
     /**button edges
      *
@@ -68,6 +70,10 @@ public class blueTeleop extends OpMode {
 
     private static final double BOOST_PER_SECOND = 0.5;
     private static final double MAX_SHOOT_BOOST = 0.15;
+    private boolean prevShootBumper = false;
+    private long feedStartNs = 0;
+    private long bumperActiveUntilNs = 0;
+    private static final long MIN_BUMPER_NS = 1_000_000_000L;
 
 
     /**configs
@@ -128,6 +134,7 @@ public class blueTeleop extends OpMode {
         shooter = new ShooterSubsystemFF(hardwareMap);
         stopper = new StopperSubsystem(hardwareMap);
         vision = new VisionSubsystem(hardwareMap);
+        light = new LightSubsystem(hardwareMap);
 
         visionAim = new AutoAimVision(follower, vision);
         visionAim.setSelectionMode(
@@ -370,16 +377,61 @@ public class blueTeleop extends OpMode {
 
         prevDown = down;
 
+        boolean shootBumper = gamepad1.left_bumper;
+        long now = System.nanoTime();
+
+// Begin the delay only on the initial press.
+        if (shootBumper && !prevShootBumper) {
+            feedStartNs = now + 300_000_000L;
+            shootBoostStartNs = 0;
+        }
+
+// Leave the intake on when the bumper is released.
+        if (!shootBumper && prevShootBumper) {
+            intakeOn = true;
+            feedStartNs = 0;
+        }
+
+        prevShootBumper = shootBumper;
+
+        boolean waitingToFeed = shootBumper && now < feedStartNs;
+
+// Open the stopper immediately.
+        if (shootBumper || gamepad1.b) {
+            stopper.on();
+        } else {
+            stopper.off();
+        }
+
+// Left bumper takes priority over B.
+        if (shootBumper) {
+            intakeOn = true;
+
+            if (waitingToFeed) {
+                intake.off();
+            } else {
+                intake.on(1);       // slow speed
+            }
+        } else if (intakeOn) {
+            if (gamepad1.b) {
+                intake.on(1);      // Slow mode only with B
+            } else {
+                intake.on();
+            }
+        } else {
+            intake.off();
+        }
+
+// Start the shooter boost when feeding actually begins.
         boolean boostActive = SHOOT_BOOST_ENABLED
-                && gamepad1.left_bumper
+                && shootBumper
+                && !waitingToFeed
                 && shooterEnabled
                 && shooter.getTargetRpm() > 0.0;
 
         double addedPower = 0.0;
 
         if (boostActive) {
-            long now = System.nanoTime();
-
             if (shootBoostStartNs == 0) {
                 shootBoostStartNs = now;
             }
@@ -396,28 +448,8 @@ public class blueTeleop extends OpMode {
 
         shooter.update(shooterEnabled, addedPower);
 
-        if (gamepad1.left_bumper) {
-            intakeOn = true;
-        }
-
-        if (intakeOn) {
-            if (gamepad1.b) {
-                intake.on(1);  // Stopper button held: 1000 RPM
-            } else {
-                intake.on();   // Normal intake: 2000 RPM
-            }
-        } else {
-            intake.off();
-        }
-
-        /**
-         * Stopper Subsystem
-         */
-        if (gamepad1.left_bumper || gamepad1.b) {
-            stopper.on();
-        } else {
-            stopper.off();
-        }
+        //light subsystem
+        light.update(shooter);
 
         /**
          * Telemetry
